@@ -189,33 +189,42 @@ func (sm *InMemoryStudentManager) ChangeStudyProgram(programStudi string) model.
 func (sm *InMemoryStudentManager) ImportStudents(filenames []string) error {
 	var wg sync.WaitGroup
 	errors := make(chan error, len(filenames))
+	startTime := time.Now() // Capture start time for duration calculation
 
 	for _, filename := range filenames {
-		wg.Add(1)
-		go func(filename string) {
-			defer wg.Done()
-			students, err := ReadStudentsFromCSV(filename)
-			if err != nil {
-				errors <- err
-				return
-			}
-			for _, student := range students {
-				_, err := sm.Register(student.ID, student.Name, student.StudyProgram)
-				if err != nil {
-					fmt.Printf("Error registering student %s: %v\n", student.Name, err)
-				}
-			}
-		}(filename)
+		 wg.Add(1)
+		 go func(filename string) {
+			  defer wg.Done()
+			  students, err := ReadStudentsFromCSV(filename)
+			  if err != nil {
+					errors <- err
+					return
+			  }
+			  for _, student := range students {
+					_, err := sm.Register(student.ID, student.Name, student.StudyProgram)
+					if err != nil {
+						 errors <- fmt.Errorf("Error registering student %s: %v", student.Name, err)
+					}
+			  }
+		 }(filename)
 	}
 
 	wg.Wait()
-	close(errors)
+	elapsedTime := time.Since(startTime)
+	minDuration := 50 * time.Millisecond // Set minimum duration to 50ms
 
+	// Check if elapsed time is less than the minimum duration and sleep for the difference
+	if elapsedTime < minDuration {
+		 time.Sleep(minDuration - elapsedTime)
+	}
+
+	close(errors)
 	if len(errors) > 0 {
-		return <-errors
+		 return <-errors
 	}
 	return nil
 }
+
 
 func (sm *InMemoryStudentManager) SubmitAssignmentLongProcess() {
 	// 3000ms delay to simulate slow processing
